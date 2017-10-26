@@ -1,0 +1,14 @@
+{"1.1.0",
+[{<<"cf">>,{pkg,<<"cf">>,<<"0.2.2">>},2},
+ {<<"erlware_commons">>,{pkg,<<"erlware_commons">>,<<"1.0.0">>},1},
+ {<<"qdate">>,
+  {git,"https://github.com/choptastic/qdate.git",
+       {ref,"bab222aeb47b160c23ebc23acde7a0b4b960be29"}},
+  0},
+ {<<"qdate_localtime">>,{pkg,<<"qdate_localtime">>,<<"1.1.0">>},1}]}.
+[
+{pkg_hash,[
+ {<<"cf">>, <<"7F2913FFF90ABCABD0F489896CFEB0B0674F6C8DF6C10B17A83175448029896C">>},
+ {<<"erlware_commons">>, <<"087467DE5833C0BB5B3CCDD387F9E9C1FB816A75B7A709629BF24B5ED3246C51">>},
+ {<<"qdate_localtime">>, <<"5F6C3ACF10ECC5A7E2EFA3DCD2C863102B962188DBD9E086EC01D29FE029DA29">>}]}
+].
