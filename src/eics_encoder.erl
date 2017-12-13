@@ -6,12 +6,8 @@
 -spec encode(calendar()) -> binary().
 encode(Calendar) when is_record(Calendar, calendar) ->
     Tokens = encode_calendar(Calendar),
-
-    ct:pal("TOKENS: ~p~n", [Tokens]),
     UnfoldedLines = lists:map(fun tokens_to_line/1, Tokens),
-    ct:pal("UNFOLDED LINES: ~p~n", [UnfoldedLines]),
     FoldedLines = lists:map(fun fold_line/1, UnfoldedLines),
-    ct:pal("FOLDED LINES: ~p~n", [FoldedLines]),
     << FoldedLine || FoldedLine <- FoldedLines >>.
 
 tokens_to_line([Key, Value]) -> << Key/binary, <<":">>/binary, Value/binary, <<"\n">>/binary>>.

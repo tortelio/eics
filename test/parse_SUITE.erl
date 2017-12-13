@@ -44,7 +44,7 @@ decode_calendar_with_events(Config) ->
 
 decode_calendar_as_todo_list(Config) ->
     EncodedCalendar = ?READ_FILE("calendar-as-todo-list.ics", Config),
-    CalendarObject = fixtures:calendar(simple),
+    CalendarObject = eics_fixtures:calendar(simple),
 
     ?assertEqual(CalendarObject, eics:decode(EncodedCalendar)),
 
@@ -64,7 +64,7 @@ encode_calendar(Config) ->
     ok.
 
 encode_calendar_as_todo_list(Config) ->
-    CalendarObject = fixtures:calendar(simple),
+    CalendarObject = eics_fixtures:calendar(simple),
     EncodedCalendar = ?READ_FILE("calendar-as-todo-list.ics", Config),
 
     ?assertEqual(EncodedCalendar, eics:encode(CalendarObject)),

@@ -1,4 +1,4 @@
--module(fixtures).
+-module(eics_fixtures).
 -include("eics.hrl").
 
 -export([calendar/1,

@@ -1,39 +1,7 @@
--ifndef(EICS_HRL).
--define(EICS_HRL, true).
+-ifndef(EICS_PRIVATE_HRL).
+-define(EICS_PRIVATE_HRL, true).
 
--record calendar, {
-          version           :: string(),
-          production_id     :: string(),
-          calendar_scale    :: string(),
-          method            :: string(),
-          x = #{}           :: map(),
-
-          events = []       :: list(),
-          todos = []        :: list()
-         }.
--type calendar() :: #calendar{}.
-
--record event, {}.
--type event() :: #event{}.
-
--record todo, {
-          created_at        :: calendar:datetime(),
-          sequence          :: integer(),
-          id                :: binary(),
-          due               :: calendar:datetime(),
-          status            :: atom(),
-          summary           :: string(),
-          alarm             :: alarm()
-         }.
--type todo() :: #todo{}.
-
--record alarm, {
-          action            :: atom(),
-          trigger           :: calendar:datetime(),
-          repeat            :: integer(),
-          duration          :: calendar:time()
-         }.
--type alarm() :: #alarm{}.
+-include("../include/eics.hrl").
 
 -define(IS(Subject, RE),
         (fun(__S, __RE) ->

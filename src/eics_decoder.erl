@@ -1,10 +1,14 @@
 -module(eics_decoder).
 -include("eics.hrl").
 
--export([decode/1]).
+-export([decode/1,
+         decode/2]).
 
 -spec decode(binary()) -> calendar().
 decode(Binary) when is_binary(Binary) ->
+    decode(calendar, Binary).
+
+decode(Element, Binary) when is_binary(Binary) ->
     Lines1 = re:split(Binary, <<"\r?\n">>),
 
     % Unfoldin lines
@@ -25,7 +29,10 @@ decode(Binary) when is_binary(Binary) ->
                                end
                        end, Lines2),
 
-    decode_calendar(Lines3).
+    decode(Element, Lines3);
+
+decode(calendar, Lines) when is_list(Lines) -> decode_calendar(Lines);
+decode(todo, Lines) when is_list(Lines) -> {Todo, []} = decode_todo(Lines), Todo.
 
 %% CALENDAR
 decode_calendar([[?BEGIN, ?CALENDAR] | Rest1]) ->
@@ -78,7 +85,9 @@ decode_event([_ | Rest], Event) -> decode_event(Rest, Event).
 
 %% TODO
 decode_todo([[?BEGIN, ?TODO] | Rest]) ->
-    decode_todo(Rest, #todo{}).
+    decode_todo(Rest, #todo{});
+decode_todo(_) ->
+    throw(missing_begin_todo).
 
 decode_todo([[?END, ?TODO] | Rest], Todo) -> {Todo, Rest};
 decode_todo([[?CREATED_AT, Datetime] | Rest], Todo) ->
@@ -95,6 +104,8 @@ decode_todo([[?STATUS, _Status] | _Rest], _Todo) ->
     throw(status_already_exists);
 decode_todo([[?SUMMARY, Summary] | Rest], Todo) ->
     decode_todo(Rest, Todo#todo{summary = Summary});
+decode_todo([[x, Key, Value] | Rest], #todo{x = X} = Todo) ->
+    decode_todo(Rest, Todo#todo{x = X#{Key => Value}});
 % TODO refactor this
 decode_todo([[?BEGIN, ?ALARM] | _] = Rest1, Todo) ->
     {Alarm, Rest2} = decode_alarm(Rest1),
