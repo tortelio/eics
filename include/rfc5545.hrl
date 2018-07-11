@@ -1,0 +1,6 @@
+-import('rfc5234',['CRLF'/0,'ALPHA'/0,'DIGIT'/0,'DQUOTE'/0,'WSP'/0]).
+-import('rfc3986',['uri'/0]).
+-import('rfc5646',['Language-Tag'/0]).
+-import('rfc3629',['UTF8-2'/0, 'UTF8-3'/0, 'UTF8-4'/0, 'UTF8-tail'/0]).
+-import('rfc4288',['subtype-name'/0, 'type-name'/0]).
+-compile({no_auto_import,[date/0,time/0]}).

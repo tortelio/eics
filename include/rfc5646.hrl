@@ -1,0 +1,1 @@
+-import('rfc5234',['CRLF'/0, 'SP'/0,'ALPHA'/0,'DIGIT'/0]).
