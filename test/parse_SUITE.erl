@@ -36,8 +36,9 @@ parse_calendar(Config) ->
 
     Calendar = eics:decode(ICS),
 
-    ?assert(is_list(Calendar)),
-    ?assertEqual(19, length(Calendar)),
+    ?assertEqual(#{type     => calendar,
+                   prodid   => <<"-//ABC Corporation//NONSGML My Product//EN">>
+                  }, Calendar),
 
     ok.
 
@@ -46,7 +47,6 @@ parse_calendar_folded_with_htab(Config) ->
 
     Calendar = eics:decode(ICS),
 
-    ?assert(is_list(Calendar)),
-    ?assertEqual(19, length(Calendar)),
+    ?assertEqual(#{type => calendar}, Calendar),
 
     ok.
