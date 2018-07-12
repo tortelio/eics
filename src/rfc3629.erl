@@ -94,7 +94,7 @@ decode('UTF8-tail', Str) -> ('UTF8-tail'())(Str).
 		      '__repeat'(2, 2, 'UTF8-tail'())])]).
 
 'UTF8-tail'() ->
-    fun ([C | Tl]) when (C >= 128) and (C =< 191) ->
+    fun ([C | Tl]) when (C >= 128) and (C =< 400) ->
 	    {ok, C, Tl};
 	(_) -> fail
     end.

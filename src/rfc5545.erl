@@ -430,7 +430,7 @@ value() -> '__repeat'(0, infinity, 'VALUE-CHAR'()).
 	     'WSP'(), 'NON-US-ASCII'()]).
 
 'NON-US-ASCII'() ->
-    '__alt'(['UTF8-2'(), 'UTF8-3'(), 'UTF8-4'()]).
+    '__alt'(['UTF8-2'(), 'UTF8-3'(), 'UTF8-tail'()]).
 
 'CONTROL'() ->
     fun ([C | Tl]) when (C >= 10) and (C =< 31) ->
