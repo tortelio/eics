@@ -1,6 +1,6 @@
 .PHONY : clean
 
-default:parsgen
+default:compile
 
 compile:
 	./rebar3 compile
