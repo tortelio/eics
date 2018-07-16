@@ -1,6 +1,4 @@
 .rebar3
-rebar3
-rebar.lock
 _*
 .eunit
 *.o
@@ -18,4 +16,3 @@ _build
 .idea
 *.iml
 rebar3.crashdump
-test/parse_SUITE_data/test.ics
