@@ -40,7 +40,11 @@ parse_calendar(Config) ->
                    prodid   => <<"-//ABC Corporation//NONSGML My Product//EN">>,
                    todos    => [#{type      => todo,
                                   sequence  => 2,
-                                  alarm     => #{type => alarm}
+                                  summary   => <<"Submit Income Taxes">>,
+                                  uid       => <<"uid4@example.com">>,
+                                  alarm     => #{type => alarm,
+                                                repeat => 4
+                                                }
                                  }]
                   }, Calendar),
 
@@ -51,6 +55,16 @@ parse_calendar_folded_with_htab(Config) ->
 
     Calendar = eics:decode(ICS),
 
-    ?assertEqual(#{type => calendar}, Calendar),
+    ?assertEqual(#{type => calendar,
+                   prodid   => <<"-//ABC Corporation//NONSGML My Product//EN">>,
+                   todos    => [#{type      => todo,
+                                  sequence  => 2,
+                                  summary   => <<"Submit Income Taxes">>,
+                                  uid       => <<"uid4@example.com">>,
+                                  alarm     => #{type => alarm,
+                                                repeat => 4
+                                                }
+                                 }]
+                  }, Calendar),
 
     ok.

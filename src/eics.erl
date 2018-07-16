@@ -12,6 +12,8 @@
 %%% Types
 %%%=============================================================================
 
+-type status() :: needsaction | accepted | declined | tentative | delegated | completed | inprocess.
+
 -type todo() :: #{
         type    := todo,
         seq     => integer()
@@ -68,10 +70,12 @@ unfold(PrevLines, [Line | Lines], UnfoldedLines) ->
             end
     end.
 
+%% Concats the previously stored lines
 append_prev_lines(UnfoldedLines, PrevLines) ->
     UnfoldedLine = lists:concat(lists:reverse(PrevLines)),
     [UnfoldedLine | UnfoldedLines].
 
+%% Decodes the unfolded lines with the parser line by line
 decode_raw_lines(Lines) ->
     decode_raw_lines(Lines, []).
 
@@ -87,11 +91,11 @@ decode_raw_lines([RawLine | Rest], State) ->
             throw(fail)
     end.
 
+%% Gets a decoded line and places it in the map
+%% First argument is the decoded line
+%% Second is the current state of the calendar
 decode_line(["BEGIN", "", $:, "VCALENDAR", "\r\n"], []) ->
     [{calendar, #{type => calendar, todos => []}}];
-
-decode_line(["PRODID", "", $:, Prodid, "\r\n"], [{calendar, Calendar}]) ->
-    [{calendar, Calendar#{prodid => unicode:characters_to_binary(Prodid)}}];
 
 %% VTODO
 decode_line(["BEGIN", "", $:, "VTODO", "\r\n"], State) ->
@@ -100,8 +104,43 @@ decode_line(["BEGIN", "", $:, "VTODO", "\r\n"], State) ->
 decode_line(["END", "", $:, "VTODO", "\r\n"], [{todo, Todo}, {calendar, #{todos := Todos} = Calendar}]) ->
     [{calendar, Calendar#{todos => [Todo | Todos]}}];
 
-decode_line(["SEQUENCE", [], $:, Sequence, "\r\n"], [{Type, Element}|State]) ->
-    [{Type, Element#{sequence => list_to_integer(Sequence)}}|State];
+%% VALARM
+decode_line(["BEGIN", "", $:, "VALARM", "\r\n"], State) ->
+    [{alarm, #{type => alarm}} | State];
+
+decode_line(["END", "", $:, "VALARM", "\r\n"],[{alarm, Alarm}, {Type, Element} | State]) ->
+    [{Type, Element#{alarm => Alarm}} | State];
+
+%% iCalendar components
+decode_line(["REPEAT", "", $:, RepValue, "\r\n"], [{Type, Element} | State]) ->
+    case lists:member(Type, [alarm]) of
+        true -> [{Type, Element#{repeat => list_to_integer(RepValue)}} | State];
+        false -> throw(fail)
+    end;
+
+decode_line(["UID", "", $:, Uid, "\r\n"], [{Type, Element} | State]) ->
+    case lists:member(Type,[todo, event, journal, freebusy]) of
+        true -> [{Type, Element#{uid => unicode:characters_to_binary(Uid)}} | State];
+        false -> throw(fail)
+    end;
+
+decode_line(["SEQUENCE", [], $:, Sequence, "\r\n"], [{Type, Element} | State]) ->
+    case lists:member(Type,[todo, event, journal]) of
+        true -> [{Type, Element#{sequence => list_to_integer(Sequence)}} | State];
+        false -> throw(fail)
+    end;
+
+decode_line(["PRODID", "", $:, Prodid, "\r\n"], [{Type, Calendar}]) ->
+    case lists:member(Type,[calendar]) of
+        true -> [{calendar, Calendar#{prodid => unicode:characters_to_binary(Prodid)}}];
+        false -> throw(fail)
+    end;
+
+decode_line(["SUMMARY", "", $:, Summ, "\r\n"], [{Type, Element} | State]) ->
+    case lists:member(Type,[todo, event, journal, alarm]) of
+        true ->[{Type, Element#{summary => unicode:characters_to_binary(Summ)}} | State];
+        false -> throw(fail)
+    end;
 
 decode_line(Line, State) ->
     ct:pal("WARNING: unhandled line: ~p~n", [Line]),
