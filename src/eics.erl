@@ -73,26 +73,40 @@ append_prev_lines(UnfoldedLines, PrevLines) ->
     [UnfoldedLine | UnfoldedLines].
 
 decode_raw_lines(Lines) ->
-    decode_raw_lines(Lines, #{type => calendar}).
+    decode_raw_lines(Lines, []).
 
-decode_raw_lines([], Calendar) -> Calendar;
-decode_raw_lines([RawLine | Rest], Calendar) ->
+decode_raw_lines([], [{calendar, Calendar}]) -> Calendar;
+decode_raw_lines([RawLine | Rest], State) ->
     case rfc5545:decode(contentline, RawLine) of
         {ok, Line, []} ->
-            Calendar2 = decode_line(Line, Calendar),
-            decode_raw_lines(Rest, Calendar2);
+            State2 = decode_line(Line, State),
+            decode_raw_lines(Rest, State2);
         {ok, _, Unparsed} ->
             throw({unparsed, Unparsed});
         fail ->
             throw(fail)
     end.
 
-decode_line(["PRODID", "", $:, Prodid, "\r\n"], Calendar) ->
-    Calendar#{prodid => unicode:characters_to_binary(Prodid)};
+decode_line(["BEGIN", "", $:, "VCALENDAR", "\r\n"], []) ->
+    [{calendar, #{type => calendar, todos => []}}];
 
-decode_line(Line, Calendar) ->
+decode_line(["PRODID", "", $:, Prodid, "\r\n"], [{calendar, Calendar}]) ->
+    [{calendar, Calendar#{prodid => unicode:characters_to_binary(Prodid)}}];
+
+%% VTODO
+decode_line(["BEGIN", "", $:, "VTODO", "\r\n"], State) ->
+    [{todo, #{type => todo}} | State];
+
+decode_line(["END", "", $:, "VTODO", "\r\n"], [{todo, Todo}, {calendar, #{todos := Todos} = Calendar}]) ->
+    [{calendar, Calendar#{todos => [Todo | Todos]}}];
+
+decode_line(["SEQUENCE", [], $:, Sequence, "\r\n"], [{Type, Element}|State]) ->
+    [{Type, Element#{sequence => list_to_integer(Sequence)}}|State];
+
+decode_line(Line, State) ->
     ct:pal("WARNING: unhandled line: ~p~n", [Line]),
-    Calendar.
+    ct:pal("with state: ~p~n", [State]),
+    State.
 
 -ifdef(EUNIT).
 

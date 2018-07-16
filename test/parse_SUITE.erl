@@ -37,7 +37,11 @@ parse_calendar(Config) ->
     Calendar = eics:decode(ICS),
 
     ?assertEqual(#{type     => calendar,
-                   prodid   => <<"-//ABC Corporation//NONSGML My Product//EN">>
+                   prodid   => <<"-//ABC Corporation//NONSGML My Product//EN">>,
+                   todos    => [#{type      => todo,
+                                  sequence  => 2,
+                                  alarm     => #{type => alarm}
+                                 }]
                   }, Calendar),
 
     ok.
