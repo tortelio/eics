@@ -1,7 +1,28 @@
 -module(eics).
 -include("eics.hrl").
 
+%%%=============================================================================
+%%% Exports
+%%%=============================================================================
+
 -export([decode/1]).
+-export_type([todo/0,calendar/0]).
+
+%%%=============================================================================
+%%% Types
+%%%=============================================================================
+
+-type todo() :: #{
+        type    := todo,
+        seq     => integer()
+       }.
+
+-type calendar() :: #{
+        type    := calendar,
+        version := binary(),
+        prodid  := binary(),
+        todos   => [todo()]
+       }.
 
 -spec decode(binary()) -> calendar().
 decode(Binary) when is_binary(Binary) ->
