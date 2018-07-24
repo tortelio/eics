@@ -1,13 +1,13 @@
-URI           = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+uri           = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
 
 hier-part     = "//" authority path-abempty
              / path-absolute
              / path-rootless
              / path-empty
 
-URI-reference = URI / relative-ref
+uri-reference = uri / relative-ref
 
-absolute-URI  = scheme ":" hier-part [ "?" query ]
+absolute-uri  = scheme ":" hier-part [ "?" query ]
 
 relative-ref  = relative-part [ "?" query ] [ "#" fragment ]
 
