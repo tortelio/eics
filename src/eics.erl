@@ -12,7 +12,7 @@
 %%% Types
 %%%=============================================================================
 
--type status() :: needsaction | accepted | declined | tentative | delegated | completed | inprocess.
+%-type status() :: needsaction | accepted | declined | tentative | delegated | completed | inprocess.
 
 -type todo() :: #{
         type    := todo,
@@ -25,6 +25,10 @@
         prodid  := binary(),
         todos   => [todo()]
        }.
+
+%%%=============================================================================
+%%% API
+%%%=============================================================================
 
 -spec decode(binary()) -> calendar().
 decode(Binary) when is_binary(Binary) ->
@@ -43,7 +47,6 @@ decode(Binary) when is_binary(Binary) ->
     Lines2 = lists:map(fun(L) -> L ++ "\r\n" end, Lines),
 
     decode_raw_lines(Lines2).
-
 
 %%%=============================================================================
 %%% Internal functions
@@ -76,76 +79,116 @@ append_prev_lines(UnfoldedLines, PrevLines) ->
     [UnfoldedLine | UnfoldedLines].
 
 %% Decodes the unfolded lines with the parser line by line
+%% Throws fail on wrong input
 decode_raw_lines(Lines) ->
     decode_raw_lines(Lines, []).
 
 decode_raw_lines([], [{calendar, Calendar}]) -> Calendar;
 decode_raw_lines([RawLine | Rest], State) ->
-    case rfc5545:decode(contentline, RawLine) of
-        {ok, Line, []} ->
-            State2 = decode_line(Line, State),
+    {ok, Component, _} = rfc5545:decode(component, RawLine),
+    CurrentComponent = component_to_atom(Component),
+    ReturnedState = case CurrentComponent of
+                        'begin' ->
+                            newComponent(RawLine, State);
+                        'end' ->
+                            endComponent(State);
+                        _ ->
+                            addComponentPart(RawLine, CurrentComponent, State)
+                    end,
+    case ReturnedState of
+        {ok, State2} ->
             decode_raw_lines(Rest, State2);
-        {ok, _, Unparsed} ->
-            throw({unparsed, Unparsed});
         fail ->
             throw(fail)
     end.
 
-%% Gets a decoded line and places it in the map
-%% First argument is the decoded line
-%% Second is the current state of the calendar
-decode_line(["BEGIN", "", $:, "VCALENDAR", "\r\n"], []) ->
-    [{calendar, #{type => calendar, todos => []}}];
+%% If Line starts with 'BEGIN', this function creates the element for it in the State
+newComponent(Line, State) ->
+    Type = getCompType(Line),
+    case Type of
+        calendar ->
+            {ok, [{calendar, #{type => calendar, todos => [], events => []}}]};
+        fail ->
+            fail;
+        _ ->
+            {ok, [{Type, #{type => Type}} | State]}
+    end.
 
-%% VTODO
-decode_line(["BEGIN", "", $:, "VTODO", "\r\n"], State) ->
-    [{todo, #{type => todo}} | State];
+%% If Line starts with 'END', this function closes the last element in the State
+endComponent([{Type, Element} | State] = FullState) ->
+    ReturnState = case Type of
+                      todo ->
+                          [{calendar, #{todos := Todos} = Calendar}] = State,
+                          [{calendar, Calendar#{todos => [Element | Todos]}}];
+                      event ->
+                          [{calendar, #{events := Events} = Calendar}] = State,
+                          [{calendar, Calendar#{events => [Element | Events]}}];
+                      calendar ->
+                          FullState;
+                      _ ->
+                          [{ParentType, ParentElement} | Rest] = State,
+                          [{ParentType, ParentElement#{Type => Element}} | Rest]
+                  end,
+    {ok, ReturnState}.
 
-decode_line(["END", "", $:, "VTODO", "\r\n"], [{todo, Todo}, {calendar, #{todos := Todos} = Calendar}]) ->
-    [{calendar, Calendar#{todos => [Todo | Todos]}}];
+%% Adds the current line to the state after parsing it
+addComponentPart(_, _, []) ->
+    fail;
+addComponentPart(Line, CompType, [{Type, Element} | State]) ->
+    ParserParam = case CompType of %gets the param which is given to the parser
+                      sequence ->
+                          seq;
+                      'last-modified' ->
+                          'last-mod';
+                      _->
+                          case string:prefix(Line, "X-") of
+                              nomatch ->
+                                  CompType;
+                              _ ->
+                                  'x-prop'
+                          end
+                  end,
+    case rfc5545:decode(ParserParam, Line) of
+        {ok, DecodedLine, _} ->
+            CleanedList = clean_list(DecodedLine, CompType),
+            {ok, [{Type, Element#{CompType => CleanedList}} | State]};
+        fail -> fail
+    end.
 
-%% VALARM
-decode_line(["BEGIN", "", $:, "VALARM", "\r\n"], State) ->
-    [{alarm, #{type => alarm}} | State];
+%% Forms an atom from the component the line represents
+component_to_atom(Component) ->
+    LowerCased = string:lowercase(Component),
+    list_to_atom(LowerCased).
 
-decode_line(["END", "", $:, "VALARM", "\r\n"],[{alarm, Alarm}, {Type, Element} | State]) ->
-    [{Type, Element#{alarm => Alarm}} | State];
+%% At 'BEGIN' lines, this function gets the Calendar component that begins
+getCompType(Line) ->
+    {ok, [_, "", $:, Type, "\r\n"], ""} = rfc5545:decode('contentline', Line),
+    case string:prefix(Type, "V") of
+        CompName ->
+            component_to_atom(CompName);
+        nomatch ->
+            fail
+    end.
 
-%% iCalendar components
-decode_line(["REPEAT", "", $:, RepValue, "\r\n"], [{Type, Element} | State]) ->
-    case lists:member(Type, [alarm]) of
-        true -> [{Type, Element#{repeat => list_to_integer(RepValue)}} | State];
-        false -> throw(fail)
-    end;
+%% TODO Finish this
+clean_list(InputList, CompType) ->
+    NoEmptyLists = remove_empty_lists(InputList).
 
-decode_line(["UID", "", $:, Uid, "\r\n"], [{Type, Element} | State]) ->
-    case lists:member(Type,[todo, event, journal, freebusy]) of
-        true -> [{Type, Element#{uid => unicode:characters_to_binary(Uid)}} | State];
-        false -> throw(fail)
-    end;
+%% Removes all empty lists from the given list
+remove_empty_lists(List) ->
+    remove_empty_lists(List, []).
 
-decode_line(["SEQUENCE", [], $:, Sequence, "\r\n"], [{Type, Element} | State]) ->
-    case lists:member(Type,[todo, event, journal]) of
-        true -> [{Type, Element#{sequence => list_to_integer(Sequence)}} | State];
-        false -> throw(fail)
-    end;
-
-decode_line(["PRODID", "", $:, Prodid, "\r\n"], [{Type, Calendar}]) ->
-    case lists:member(Type,[calendar]) of
-        true -> [{calendar, Calendar#{prodid => unicode:characters_to_binary(Prodid)}}];
-        false -> throw(fail)
-    end;
-
-decode_line(["SUMMARY", "", $:, Summ, "\r\n"], [{Type, Element} | State]) ->
-    case lists:member(Type,[todo, event, journal, alarm]) of
-        true ->[{Type, Element#{summary => unicode:characters_to_binary(Summ)}} | State];
-        false -> throw(fail)
-    end;
-
-decode_line(Line, State) ->
-    ct:pal("WARNING: unhandled line: ~p~n", [Line]),
-    ct:pal("with state: ~p~n", [State]),
-    State.
+remove_empty_lists([], Filtered) ->
+    lists:reverse(Filtered);
+remove_empty_lists([Head | Rest], Filtered) ->
+    FilteredHead = case is_list(Head) of
+                true -> remove_empty_lists(Head, []);
+                false -> Head
+            end,
+    case FilteredHead of
+        [] -> remove_empty_lists(Rest, Filtered);
+        _ -> remove_empty_lists(Rest, [FilteredHead | Filtered])
+    end.
 
 -ifdef(EUNIT).
 
