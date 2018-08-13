@@ -164,9 +164,9 @@ component_to_atom(Component) ->
 getCompType(Line) ->
     {ok, [_, "", $:, Type, "\r\n"], ""} = rfc5545:decode('contentline', Line),
     case string:prefix(Type, "V") of
-        CompName ->
-            component_to_atom(CompName);
         nomatch ->
+            component_to_atom(Type);
+        CompName ->
             component_to_atom(CompName)
     end.
 
