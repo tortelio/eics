@@ -167,7 +167,7 @@ getCompType(Line) ->
         CompName ->
             component_to_atom(CompName);
         nomatch ->
-            fail
+            component_to_atom(CompName)
     end.
 
 %% TODO Finish this
