@@ -5,14 +5,14 @@
 %%% Exports
 %%%=============================================================================
 
--export([decode/1]).
+-export([decode/1,
+         encode/1]).
+
 -export_type([todo/0,calendar/0]).
 
 %%%=============================================================================
 %%% Types
 %%%=============================================================================
-
-%-type status() :: needsaction | accepted | declined | tentative | delegated | completed | inprocess.
 
 -type todo() :: #{
         type    := todo,
@@ -48,9 +48,52 @@ decode(Binary) when is_binary(Binary) ->
 
     decode_raw_lines(Lines2).
 
+% @doc Encodes a calendar map into an ICS file
+-spec encode(map()) -> binary().
+encode(CalendarMap) ->
+    Mod = #{data => CalendarMap},
+    maps:fold(fun(K,V,A) -> create_ics_body(K,V,A) end, <<"">>, Mod).
+
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
+
+%% @doc Creates the ICS body from the map
+create_ics_body(Key, Value, Acc) when is_map(Value) ->
+    #{type := Type} = Value,
+    Component = case lists:member(Type, [calendar, alarm, timezone, event]) of
+                    true ->
+                        Begin = binary:list_to_bin(string:to_upper(atom_to_list(Type))),
+                        <<"V", Begin/binary>>;
+                    false ->
+                        binary:list_to_bin(string:to_upper(atom_to_list(Type)))
+                end,
+    BeginComp = <<"BEGIN:", Component/binary, "\r\n">>,
+    FullComp = maps:fold(fun(K,V,A) -> create_ics_body(K,V,A) end, BeginComp, Value),
+    <<Acc/binary, FullComp/binary, "END:", Component/binary, "\r\n">>;
+
+create_ics_body(Key, Value, Acc) when is_list(Value) ->
+    ToIns = case lists:member(Key, [events, timezones]) of
+                false ->
+                    binary:list_to_bin(lists:flatten(Value));
+                true ->
+                    Comp = case lists:member(Key, [events, timezones, todos]) of
+                               true ->
+                                   Begin = binary:list_to_bin(string:to_upper(lists:droplast(atom_to_list(Key)))),
+                                   <<"V", Begin/binary>>;
+                               false ->
+                                   binary:list_to_bin(string:to_upper(lists:droplast(atom_to_list(Key))))
+                           end,
+                    binary:list_to_bin(lists:map(fun(L) ->
+                                                         BeginComp = <<"BEGIN:", Comp/binary, "\r\n">>,
+                                                         This = maps:fold(fun(K,V,A) ->create_ics_body(K,V,A) end, BeginComp, L),
+                                                         <<This/binary, "END:", Comp/binary, "\r\n">>
+                                                 end, Value))
+            end,
+    <<Acc/binary, ToIns/binary>>;
+
+create_ics_body(_, _, Acc) ->
+    Acc.
 
 %% Unfolding lines
 %% TODO simplify " " and "\t" matching
@@ -124,8 +167,8 @@ endComponent([{Type, Element} | State] = FullState) ->
                           [{calendar, #{events := Events} = Calendar}] = State,
                           [{calendar, Calendar#{events => [Element | Events]}}];
                       timezone ->
-                          [{calendar, #{timezone := TZs} = Calendar}] = State,
-                          [{calendar, Calendar#{timezone => [Element | TZs]}}];
+                          [{calendar, #{timezones := TZs} = Calendar}] = State,
+                          [{calendar, Calendar#{timezones => [Element | TZs]}}];
                       calendar ->
                           FullState;
                       _ ->
