@@ -107,7 +107,7 @@ newComponent(Line, State) ->
     Type = getCompType(Line),
     case Type of
         calendar ->
-            {ok, [{calendar, #{type => calendar, todos => [], events => []}}]};
+            {ok, [{calendar, #{type => calendar, todos => [], events => [], timezones => []}}]};
         fail ->
             fail;
         _ ->
@@ -123,6 +123,9 @@ endComponent([{Type, Element} | State] = FullState) ->
                       event ->
                           [{calendar, #{events := Events} = Calendar}] = State,
                           [{calendar, Calendar#{events => [Element | Events]}}];
+                      timezone ->
+                          [{calendar, #{timezone := TZs} = Calendar}] = State,
+                          [{calendar, Calendar#{timezone => [Element | TZs]}}];
                       calendar ->
                           FullState;
                       _ ->
