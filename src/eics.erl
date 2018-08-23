@@ -6,6 +6,7 @@
 %%%=============================================================================
 
 -export([decode/1,
+         decode/2,
          encode/1]).
 
 -export_type([todo/0,calendar/0]).
@@ -32,19 +33,29 @@
 
 -spec decode(binary()) -> calendar().
 decode(Binary) when is_binary(Binary) ->
+    decode(Binary, [{'fold_mode', single}]).
+
+decode(Binary, Opts) when is_binary(Binary) ->
     String = unicode:characters_to_list(Binary, utf8),
 
-    FoldedLines = string:split(String, "\r\n", all),
+    Separator = case lists:nth(1,string:split(String, "\r\n")) of
+                    "BEGIN:VCALENDAR" ->
+                        "\r\n";
+                    _ ->
+                        "\n"
+                end,
+
+    FoldedLines = string:split(String, Separator, all),
     FoldedLines2 =
     case lists:last(FoldedLines) of
         "" -> lists:droplast(FoldedLines);
         _ -> FoldedLines
     end,
 
-    Lines = unfold(FoldedLines2),
+    Lines = unfold(FoldedLines2, Opts),
 
     % TODO
-    Lines2 = lists:map(fun(L) -> L ++ "\r\n" end, Lines),
+    Lines2 = lists:filter(fun(L) -> L /= "\r\n" end, lists:map(fun(L) -> L ++ "\r\n" end, Lines)),
 
     decode_raw_lines(Lines2).
 
@@ -97,22 +108,29 @@ create_ics_body(_, _, Acc) ->
 
 %% Unfolding lines
 %% TODO simplify " " and "\t" matching
-unfold([Line | Lines]) ->
-    lists:reverse(unfold([Line], Lines, [])).
+unfold([Line | Lines], Opts) ->
+    lists:reverse(unfold([Line], Lines, [], Opts)).
 
-unfold(PrevLines, [], UnfoldedLines) ->
+unfold(PrevLines, [], UnfoldedLines, _) ->
     append_prev_lines(UnfoldedLines, PrevLines);
-unfold(PrevLines, [Line | Lines], UnfoldedLines) ->
-    case string:prefix(Line, lists:duplicate(length(PrevLines), $ )) of
+
+unfold(PrevLines, [Line | Lines], UnfoldedLines, Opts) ->
+    FoldFun = case proplists:get_value('fold_mode', Opts) of
+                  single ->
+                      1;
+                  multiple ->
+                      length(PrevLines)
+              end,
+    case string:prefix(Line, lists:duplicate(FoldFun, $ )) of
         SubLine when is_list(SubLine)->
-            unfold([SubLine | PrevLines], Lines, UnfoldedLines);
+            unfold([SubLine | PrevLines], Lines, UnfoldedLines, Opts);
         nomatch ->
             case string:prefix(Line, lists:duplicate(length(PrevLines), $\t)) of
                 SubLine when is_list(SubLine)->
-                    unfold([SubLine | PrevLines], Lines, UnfoldedLines);
+                    unfold([SubLine | PrevLines], Lines, UnfoldedLines, Opts);
                 nomatch ->
                     UnfoldedLines2 = append_prev_lines(UnfoldedLines, PrevLines),
-                    unfold([Line], Lines, UnfoldedLines2)
+                    unfold([Line], Lines, UnfoldedLines2, Opts)
             end
     end.
 
